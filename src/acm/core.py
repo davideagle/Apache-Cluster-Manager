@@ -16,11 +16,11 @@
 from termcolor import colored
 from functional import curry
 from urllib2 import Request,urlopen
-import re
+import re, urlparse, urllib, httplib
 
 class Worker():
   """apache Load Balancer Worker class"""
-  def __init__(self, parentServer, parentVHost):
+  def __init__(self, parentServer, parentVHost, apacheVersion):
     self.mark = False
     self.actionURL = ''
     self.Worker_URL = ''
@@ -32,13 +32,59 @@ class Worker():
     self.Elected = ''
     self.To = ''
     self.From = ''
+    self.action = ''
+    self.queryDict = ''
     self.parentServer = parentServer
     self.parentVHost = parentVHost
-  
+    self.apacheVersion = apacheVersion
+
+  def setActionUrl(self, urlStr):
+    self.actionURL = urlStr
+    self.action, qstring  = urlStr.split('?')
+    self.queryDict = urlparse.parse_qs(qstring)
+
+
+  def isAbove24(self):
+    if int(self.apacheVersion[0]) >= 2 and self.apacheVersion[1] >= 4:
+        return True 
+ 
   def setMark(self, m):
     self.mark = m
 
-  def commitValues(self, *args, **kwargs):
+
+  def commitValues24(self, *args, **kwargs):
+    srv = self.parentServer
+    vh  = self.parentVHost
+    url = self.action
+    postParams = {}
+    
+    for arg in iter(self.queryDict):
+      val = self.queryDict[arg]
+      if type(val) is list:
+	postParams[arg] = val[0]
+      else:
+        postParams[arg] = val
+
+    for arg in iter(kwargs):
+      val = kwargs[arg]
+      if val is not None:
+	postParams[arg] = val
+    try:
+      #print "About to do http request"
+      data = urllib.urlencode(postParams)
+      headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain", "Host": vh.name}
+      if vh is not None and vh.name != '': headers['Host'] = vh.name
+      h = httplib.HTTPConnection('%s:%s' % (srv.ip, srv.port)) 
+      h.request('POST', self.action, data, headers)
+      r = h.getresponse()
+    except Exception, e:
+      print 'HTTPError = ' + str(e)
+      print "EXCEPTION!!!!!!"
+      return False
+
+    return True
+
+  def commitValues22(self,*args, **kwargs):
     '''
     Set values given by kwargs
     set a variable by giving its name and its value as a parameter to this function 
@@ -46,6 +92,33 @@ class Worker():
     Example : set lf to 2 and ls to 10 :
       worker.commitValues(lf=2, ls=10)
     '''
+
+    url = self.actionURL
+    for arg in iter(kwargs):
+      val = kwargs[arg]
+      if val is not None:
+        url += '&%s=%s' % (arg, val)
+
+    ## Caling url to set values given
+    try:
+      #print "About to do http request"
+      req = Request('http://%s:%s/%s' % (srv.ip, srv.port, url))
+      if vh is not None and vh.name != '': req.add_header('Host', vh.name)
+      urlopen(req)
+    except urllib2.HTTPError, e:
+      print 'HTTPError = ' + str(e.code)
+      return False
+    except urllib2.URLError, e:
+      print 'URLError = ' + str(e.reason)
+      return False
+    except httplib.HTTPException, e:
+      return False
+      print 'HTTPException'
+    except: ## Error
+      return False
+    return True
+
+  def commitValues(self, *args, **kwargs):
     srv = self.parentServer
     vh  = self.parentVHost
     try:
@@ -54,19 +127,16 @@ class Worker():
       pass
     if srv is None:
       return False
-    url = self.actionURL
-    for arg in iter(kwargs):
-      val = kwargs[arg]
-      if val is not None:
-        url += '&%s=%s' % (arg, val)
-    ## Caling url to set values given
-    try:
-      req = Request('http://%s:%s/%s' % (srv.ip, srv.port, url))
-      if vh is not None and vh.name != '': req.add_header('Host', vh.name)
-      urlopen(req)
-    except: ## Error
-      return False
-    return True
+
+    '''
+	In apache 2.4 the web interface for balancer-manager has chanced
+	from accepting GET params in version 2.2 to accepting POST params 
+    '''
+    
+    if self.isAbove24():
+	return self.commitValues24(**kwargs)
+    else:
+	return self.commitValues22(**kwargs)
 
   def __str__(self):
     return '  Worker: Worker_URL=%s, Route=%s, RouteRedir=%s, Factor=%s, Set=%s, Status=%s, Elected=%s, To=%s, From=%s' % \
@@ -218,8 +288,10 @@ def acm_print(obj):
   __acm_apply_func(obj)
 
 
-def acm_set(obj, lf=None, ls=None, wr=None, rr=None, dw=None):
+#def acm_set(obj, lf=None, ls=None, wr=None, rr=None, dw=None):
+def acm_set(obj, lf=None, ls=None, wr=None, rr=None, dw=None, w_lf=None, w_ls=None, w_wr=None, w_rr=None, w_status_I=None, w_status_N=None, w_status_D=None, w_status_H=None):
   '''Set values on an acm object'''
-  f = curry(__set_val, lf=lf, ls=ls, wr=wr, rr=rr, dw=dw)
+  f = curry(__set_val, lf=lf, ls=ls, wr=wr, rr=rr, dw=dw, w_lf=w_lf, w_ls=w_ls, w_wr=w_wr, w_rr=w_rr, w_status_I=w_status_I, w_status_N=w_status_N, w_status_D=w_status_D, w_status_H=w_status_H)
+  #f = curry(__set_val, lf=lf, ls=ls, wr=wr, rr=rr, dw=dw)
   __acm_apply_func(obj, f)
 

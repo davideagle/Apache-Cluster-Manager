@@ -31,6 +31,11 @@ class BalancerManagerParser(HTMLParser):
     self.curlb = None
     self.srv = srv
     self.vhost = vhost
+    self.apacheVersion = []
+
+  def isAbove24(self):
+    if int(self.apacheVersion[0]) >= 2 and self.apacheVersion[1] >= 4:
+	return True 
 
   def handle_starttag(self, tag, attrs):
     self.curtags.append(tag)
@@ -47,7 +52,7 @@ class BalancerManagerParser(HTMLParser):
       self.lbptr = -1
     elif tag == 'tr' and self.tables == 2 and len(self.wattrs) > 0:
       self.wptr = -1
-      w = Worker(self.srv, self.vhost)
+      w = Worker(self.srv, self.vhost, self.apacheVersion)
       self.curworker = w
       self.curlb.workers.append(w)
     elif tag == 'td' and self.tables == 1:
@@ -55,7 +60,7 @@ class BalancerManagerParser(HTMLParser):
     elif tag == 'td' and self.tables == 2:
       self.wptr += 1
     elif tag == 'a' and self.tables == 2:
-      self.curworker.actionURL = self.attrs[0][1]
+      self.curworker.setActionUrl(self.attrs[0][1])
 
   def handle_endtag(self, tag):
     try:
@@ -67,11 +72,13 @@ class BalancerManagerParser(HTMLParser):
     ## Triming data value
     data = datap.strip(' ')
     dataValue = data.replace(' ', '_')
-    
-    if self.get_curtag() == 'h3':
+    if self.get_curtag() == 'h3' and not self.isAbove24():
       r = re.compile('^LoadBalancer Status for balancer://(.*)$')
       str = r.search(data).group(1)
       self.curlb.name = str
+    elif self.get_curtag() == 'dt' and "Server Version" in data:
+      r = re.compile('.*/(?:(\d+)\.)?(?:(\d+)\.)?(\*|\d+)\s.*')
+      self.apacheVersion = r.search(data).groups()
     elif self.get_curtag() == 'th' and self.tables == 1:
       self.lbattrs.append(dataValue)
     elif self.get_curtag() == 'th' and self.tables == 2:
@@ -82,7 +89,11 @@ class BalancerManagerParser(HTMLParser):
     elif self.get_curtag() == 'td' and self.tables == 2:
       attr = self.wattrs[self.wptr]
       setattr(self.curworker, attr, dataValue)
-    elif self.get_curtag() == 'a' and self.tables == 2:
+    elif self.get_curtag() == 'a' and self.tables == 2 and 'balancer://' in data:
+      r = re.compile('^balancer://(.*)$')
+      str = r.search(data).group(1)
+      self.curlb.name = str
+    elif self.get_curtag() == 'a' and self.tables == 2: 
       attr = self.wattrs[self.wptr]
       setattr(self.curworker, attr, dataValue)
 
@@ -116,13 +127,13 @@ class ConfigParser():
     for c in iter(self._getConfigValue(config, 'clusters')):
       cluster = Cluster()
       cluster.name = self._getConfigValue(config, c, 'name')
-      #print ('Cluster found : %s' % cluster.name)
+      print ('Cluster found : %s' % cluster.name)
 
       for s in iter(self._getConfigValue(config, c, 'servers')):
         srv = Server()
         srv.ip = self._getConfigValue(config, s, 'ip')
         srv.port = self._getConfigValue(config, s, 'port')
-        #print ('Server found : %s:%s' % (srv.ip, srv.port))
+        print ('Server found : %s:%s' % (srv.ip, srv.port))
 	##
 	vhosts = self._getConfigValue(config, s, 'vhosts')
 	if isinstance(vhosts, list):
@@ -131,7 +142,7 @@ class ConfigParser():
           for vh in iter(self._getConfigValue(config, s, 'vhosts')):
             vhost_name = self._getConfigValue(config, vh, 'name')
             vhost_burl = self._getConfigValue(config, vh, 'burl')
-            #print ('Vhost found : %s/%s' % (vhost_name, vhost_burl))
+            print ('Vhost found : %s/%s' % (vhost_name, vhost_burl))
             srv.add_vhost(vhost_name, vhost_burl)
 	else:
 	  raise SyntaxError('Configuration error [%s] - [%s].vhosts is not a list. Add a coma to create one' % (self.filename, s))
@@ -162,16 +173,21 @@ def fetch_balancer_manager_page(srv, vhost=None):
     r = urlopen(req)
     return r.read()
   except URLError, e:
-    #print ('Error occured [%s:%s] - %s' % (srv.ip, srv.port, e.reason))
+    print ('Error occured [%s:%s] - %s' % (srv.ip, srv.port, e.reason))
     raise
 
 def process_server_vhost(srv, vhost):
-  try:
+     #try:
+    #print srv, vhost
     b=BalancerManagerParser(srv, vhost)
+    #print b
     page=fetch_balancer_manager_page(srv, vhost)
+    #print page
     b.feed(page)
+    #print "created feed"
     vhost.lbs = b.lbs
-  except Exception, e:
-    #print "hohohoho - %s" % e
-    srv.error=True
+    #  except Exception, e:
+    #    print type(e)
+    #    print "hohohoho - %s" % e
+    #    srv.error=True
 

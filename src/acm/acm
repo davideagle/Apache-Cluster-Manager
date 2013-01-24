@@ -42,6 +42,22 @@ group_set.add_option('--rr', dest='rr', action='store', type='string', \
   help='Set route redirect')
 group_set.add_option('--dw', dest='dw', action='store', type='choice', choices=('Enable', 'Disable'), \
   help='Set worker status (Enable|Disable)')
+group_set.add_option('--lfn', dest='w_lf', action='store', type='int', \
+  help='Set load factor (Apache 2.4.x +)')
+group_set.add_option('--lsn', dest='w_ls', action='store', type='int', \
+  help='Set lbset (Apache 2.4.x +)')
+group_set.add_option('--wrn', dest='w_wr', action='store', type='string', \
+  help='Set route (Apache 2.4.x +)')
+group_set.add_option('--rrn', dest='w_rr', action='store', type='string', \
+  help='Set route redirect (Apache 2.4.x +)')
+group_set.add_option('--wig', dest='w_status_I', action='store', type='choice', choices=('True', 'False'), \
+  help='Set worker Ignore status (True|False) (Apache 2.4.x +)')
+group_set.add_option('--wdr', dest='w_status_N', action='store', type='choice', choices=('True', 'False'), \
+  help='Set worker Drain status (True|False) (Apache 2.4.x +)')
+group_set.add_option('--wdi', dest='w_status_D', action='store', type='choice', choices=('True', 'False'), \
+  help='Set worker Disable status (True|False) (Apache 2.4.x +)')
+group_set.add_option('--wsb', dest='w_status_H', action='store', type='choice', choices=('True', 'False'), \
+  help='Set worker Standby status (True|False) (Apache 2.4.x +)')
 
 group_cmd = OptionGroup(parser, "Command options")
 group_cmd.add_option('-i', '--info', dest='cmd', action='store_const', const="info", \
@@ -86,10 +102,19 @@ else:
 		       filter_route=opts.route_filter, \
 		       filter_worker=opts.worker_filter)
 
+def convertTrueFalse(boolStr):
+  if boolStr == 'True':
+    return '1'
+  elif boolStr == 'False':
+    return '0'
+  else:
+    return None
+
 if opts.cmd == 'info':
   acm_print(clusters)
 elif opts.cmd == 'set':
-  acm_set(clusters, lf=opts.lf, ls=opts.ls, wr=opts.wr, rr=opts.rr, dw=opts.dw)
+  #acm_set(clusters, lf=opts.lf, ls=opts.ls, wr=opts.wr, rr=opts.rr, dw=opts.dw)
+  acm_set(clusters, lf=opts.lf, ls=opts.ls, wr=opts.wr, rr=opts.rr, dw=opts.dw, w_lf=opts.w_lf, w_ls=opts.w_ls, w_wr=opts.w_wr, w_rr=opts.w_rr, w_status_I=convertTrueFalse(opts.w_status_I), w_status_N=convertTrueFalse(opts.w_status_N), w_status_D=convertTrueFalse(opts.w_status_D), w_status_H=convertTrueFalse(opts.w_status_H))
 else:
   sys.stderr.write("Error: %s\n" % ERROR_NO_CMD)
 
