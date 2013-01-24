@@ -83,7 +83,6 @@ class BalancerManagerParser(HTMLParser):
       self.lbattrs.append(dataValue)
     elif self.get_curtag() == 'th' and self.tables == 2:
       self.wattrs.append(dataValue)
-      print "tables=2", self.get_curtag(), dataValue
     elif self.get_curtag() == 'td' and self.tables == 1:
       attr = self.lbattrs[self.lbptr]
       setattr(self.curlb, attr, dataValue)

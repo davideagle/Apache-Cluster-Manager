@@ -139,8 +139,8 @@ class Worker():
 	return self.commitValues22(**kwargs)
 
   def __str__(self):
-    return '  Worker: Worker_URL=%s, Route=%s, RouteRedir=%s, Factor=%s, Set=%s, Status=%s, Elected=%s, To=%s, From=%s' % \
-      (self.Worker_URL, self.Route, self.RouteRedir, self.Factor, self.Set, self.Status, self.Elected, self.To, self.From)
+    return '  Worker: Worker_URL=%s, Route=%s, RouteRedir=%s, Factor=%s, Set=%s, Status=%s, Elected=%s, Busy=%s, Load=%s, To=%s, From=%s' % \
+      (self.Worker_URL, self.Route, self.RouteRedir, self.Factor, self.Set, self.Status, self.Elected, self.Busy, self.Load, self.To, self.From)
 
 
 class LoadBalancer():
