@@ -83,6 +83,7 @@ class BalancerManagerParser(HTMLParser):
       self.lbattrs.append(dataValue)
     elif self.get_curtag() == 'th' and self.tables == 2:
       self.wattrs.append(dataValue)
+      print "tables=2", self.get_curtag(), dataValue
     elif self.get_curtag() == 'td' and self.tables == 1:
       attr = self.lbattrs[self.lbptr]
       setattr(self.curlb, attr, dataValue)
@@ -177,17 +178,12 @@ def fetch_balancer_manager_page(srv, vhost=None):
     raise
 
 def process_server_vhost(srv, vhost):
-     #try:
-    #print srv, vhost
+  try:
     b=BalancerManagerParser(srv, vhost)
-    #print b
     page=fetch_balancer_manager_page(srv, vhost)
-    #print page
     b.feed(page)
-    #print "created feed"
     vhost.lbs = b.lbs
-    #  except Exception, e:
-    #    print type(e)
-    #    print "hohohoho - %s" % e
-    #    srv.error=True
+  except Exception, e:
+    #print "hohohoho - %s" % e
+    srv.error=True
 
