@@ -65,7 +65,7 @@ group_cmd.add_option('-i', '--info', dest='cmd', action='store_const', const="in
 group_cmd.add_option('-s', '--set', dest='cmd', action='store_const', const="set", \
   help='Set one or more vars on workers (do not forget to apply selection filters)')
 
-group_selection = OptionGroup(parser, "Selection options (regular expression is possible)")
+group_selection = OptionGroup(parser, "Selection options (regular expression are possible)")
 group_selection.add_option('-b', '--balancer-name', dest='lb_filter', default='.*', \
   help='Filter by balancer name')
 group_selection.add_option('-r', '--route', dest='route_filter', default='.*', \
@@ -113,8 +113,7 @@ def convertTrueFalse(boolStr):
 if opts.cmd == 'info':
   acm_print(clusters)
 elif opts.cmd == 'set':
-  #acm_set(clusters, lf=opts.lf, ls=opts.ls, wr=opts.wr, rr=opts.rr, dw=opts.dw)
-  acm_set(clusters, lf=opts.lf, ls=opts.ls, wr=opts.wr, rr=opts.rr, dw=opts.dw, w_lf=opts.w_lf, w_ls=opts.w_ls, w_wr=opts.w_wr, w_rr=opts.w_rr, w_status_I=convertTrueFalse(opts.w_status_I), w_status_N=convertTrueFalse(opts.w_status_N), w_status_D=convertTrueFalse(opts.w_status_D), w_status_H=convertTrueFalse(opts.w_status_H))
+    acm_set(clusters, lf=opts.lf, ls=opts.ls, wr=opts.wr, rr=opts.rr, dw=opts.dw, w_lf=opts.w_lf, w_ls=opts.w_ls, w_wr=opts.w_wr, w_rr=opts.w_rr, w_status_I=convertTrueFalse(opts.w_status_I), w_status_N=convertTrueFalse(opts.w_status_N), w_status_D=convertTrueFalse(opts.w_status_D), w_status_H=convertTrueFalse(opts.w_status_H))
 else:
   sys.stderr.write("Error: %s\n" % ERROR_NO_CMD)
 

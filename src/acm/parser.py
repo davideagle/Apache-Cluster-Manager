@@ -35,7 +35,9 @@ class BalancerManagerParser(HTMLParser):
 
   def isAbove24(self):
     if int(self.apacheVersion[0]) >= 2 and self.apacheVersion[1] >= 4:
-	return True 
+        return True
+    else:
+        return False
 
   def handle_starttag(self, tag, attrs):
     self.curtags.append(tag)
@@ -72,6 +74,7 @@ class BalancerManagerParser(HTMLParser):
     ## Triming data value
     data = datap.strip(' ')
     dataValue = data.replace(' ', '_')
+    
     if self.get_curtag() == 'h3' and not self.isAbove24():
       r = re.compile('^LoadBalancer Status for balancer://(.*)$')
       str = r.search(data).group(1)
@@ -94,6 +97,7 @@ class BalancerManagerParser(HTMLParser):
       str = r.search(data).group(1)
       self.curlb.name = str
     elif self.get_curtag() == 'a' and self.tables == 2: 
+
       attr = self.wattrs[self.wptr]
       setattr(self.curworker, attr, dataValue)
 
@@ -127,13 +131,15 @@ class ConfigParser():
     for c in iter(self._getConfigValue(config, 'clusters')):
       cluster = Cluster()
       cluster.name = self._getConfigValue(config, c, 'name')
-      print ('Cluster found : %s' % cluster.name)
+      #print ('Cluster found : %s' % cluster.name)
 
       for s in iter(self._getConfigValue(config, c, 'servers')):
         srv = Server()
         srv.ip = self._getConfigValue(config, s, 'ip')
         srv.port = self._getConfigValue(config, s, 'port')
-        print ('Server found : %s:%s' % (srv.ip, srv.port))
+	srv.secure = self._getConfigValue(config, s, 'secure')
+        srv.modealt = self._getConfigValue(config, s, 'modealt')
+        #print ('Server found : %s:%s' % (srv.ip, srv.port))
 	##
 	vhosts = self._getConfigValue(config, s, 'vhosts')
 	if isinstance(vhosts, list):
@@ -142,7 +148,7 @@ class ConfigParser():
           for vh in iter(self._getConfigValue(config, s, 'vhosts')):
             vhost_name = self._getConfigValue(config, vh, 'name')
             vhost_burl = self._getConfigValue(config, vh, 'burl')
-            print ('Vhost found : %s/%s' % (vhost_name, vhost_burl))
+            #print ('Vhost found : %s/%s' % (vhost_name, vhost_burl))
             srv.add_vhost(vhost_name, vhost_burl)
 	else:
 	  raise SyntaxError('Configuration error [%s] - [%s].vhosts is not a list. Add a coma to create one' % (self.filename, s))
@@ -168,13 +174,19 @@ def fetch_balancer_manager_page(srv, vhost=None):
     vh = VHost() ## Create a default vhost
     
   try:
-    req = Request('http://%s:%s/%s' % (srv.ip, srv.port, vh.balancerUrlPath))
+    protocol = srv.secure and 'https' or 'http'
+    #print protocol
+    req = Request('%s://%s:%s/%s' % (protocol, srv.ip, srv.port, vh.balancerUrlPath))
+    #print ('%s://%s:%s/%s' % (protocol, srv.ip, srv.port, vh.balancerUrlPath))
+#    req = Request('http://%s:%s/%s' % (srv.ip, srv.port, vh.balancerUrlPath))
     if vh.name != '': req.add_header('Host', vh.name)
     r = urlopen(req)
     return r.read()
   except URLError, e:
-    print ('Error occured [%s:%s] - %s' % (srv.ip, srv.port, e.reason))
+    #print ('Error occured [%s:%s] - %s' % (srv.ip, srv.port, e.reason))
     raise
+  except Exception, e:
+    print e
 
 def process_server_vhost(srv, vhost):
   try:
@@ -183,6 +195,6 @@ def process_server_vhost(srv, vhost):
     b.feed(page)
     vhost.lbs = b.lbs
   except Exception, e:
-    #print "hohohoho - %s" % e
+    #print ("hohohoho - %s" % e)
     srv.error=True
 

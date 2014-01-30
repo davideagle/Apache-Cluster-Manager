@@ -50,25 +50,37 @@ class Worker():
  
   def setMark(self, m):
     self.mark = m
-
-
+    
   def commitValues24(self, *args, **kwargs):
+    '''
+    Set values given by kwargs
+    set a variable by giving its name and its value as a parameter to this function 
+    (name is given by its GET parameter in the balancer-manager)
+    Example : set lf to 2 and ls to 10 :
+      worker.commitValues(lf=2, ls=10)
+    '''
     srv = self.parentServer
     vh  = self.parentVHost
+    try:
+      print ('[%s:%s - %s] Applying values %s' % (srv.ip, srv.port, vh.name, kwargs))
+    except:
+      pass
+    if srv is None:
+      return False
     url = self.action
     postParams = {}
     
     for arg in iter(self.queryDict):
       val = self.queryDict[arg]
       if type(val) is list:
-	postParams[arg] = val[0]
+        postParams[arg] = val[0]
       else:
         postParams[arg] = val
 
     for arg in iter(kwargs):
       val = kwargs[arg]
       if val is not None:
-	postParams[arg] = val
+          postParams[arg] = val
     try:
       #print "About to do http request"
       data = urllib.urlencode(postParams)
@@ -92,31 +104,40 @@ class Worker():
     Example : set lf to 2 and ls to 10 :
       worker.commitValues(lf=2, ls=10)
     '''
-
+    srv = self.parentServer
+    vh  = self.parentVHost
+    try:
+      print ('[%s:%s - %s] Applying values %s' % (srv.ip, srv.port, vh.name, kwargs))
+    except:
+      pass
+    if srv is None:
+      return False
     url = self.actionURL
     for arg in iter(kwargs):
       val = kwargs[arg]
       if val is not None:
-        url += '&%s=%s' % (arg, val)
+        param = '&%s=%s' % (arg, val)
 
+        #print("srv modealt=%s and arg=%s" % (srv.modealt, arg))
+        if srv.modealt and arg == "dw":
+          v = val == "Disable" and "1" or "0"
+          param = '&status_I=0&status_H=0&status_D=%s' % v
+          #print("parameters = %s" % param)
+        
+        url += param
     ## Caling url to set values given
     try:
-      #print "About to do http request"
-      req = Request('http://%s:%s/%s' % (srv.ip, srv.port, url))
+      protocol = srv.secure and 'https' or 'http'
+      req = Request('%s://%s:%s/%s' % (protocol, srv.ip, srv.port, url))
       if vh is not None and vh.name != '': req.add_header('Host', vh.name)
       urlopen(req)
-    except urllib2.HTTPError, e:
-      print 'HTTPError = ' + str(e.code)
-      return False
-    except urllib2.URLError, e:
-      print 'URLError = ' + str(e.reason)
-      return False
-    except httplib.HTTPException, e:
-      return False
-      print 'HTTPException'
     except: ## Error
       return False
     return True
+
+  def __str__(self):
+    return '  Worker: Worker_URL=%s, Route=%s, RouteRedir=%s, Factor=%s, Set=%s, Status=%s, Elected=%s, Busy=%s, Load=%s, To=%s, From=%s' % \
+        (self.Worker_URL, self.Route, self.RouteRedir, self.Factor, self.Set, self.Status, self.Elected, self.Busy, self.Load, self.To, self.From)
 
   def commitValues(self, *args, **kwargs):
     srv = self.parentServer
@@ -129,18 +150,14 @@ class Worker():
       return False
 
     '''
-	In apache 2.4 the web interface for balancer-manager has chanced
-	from accepting GET params in version 2.2 to accepting POST params 
+    In apache 2.4 the web interface for balancer-manager has chanced
+    from accepting GET params in version 2.2 to accepting POST params 
     '''
     
     if self.isAbove24():
-	return self.commitValues24(**kwargs)
+        return self.commitValues24(**kwargs)
     else:
-	return self.commitValues22(**kwargs)
-
-  def __str__(self):
-    return '  Worker: Worker_URL=%s, Route=%s, RouteRedir=%s, Factor=%s, Set=%s, Status=%s, Elected=%s, Busy=%s, Load=%s, To=%s, From=%s' % \
-      (self.Worker_URL, self.Route, self.RouteRedir, self.Factor, self.Set, self.Status, self.Elected, self.Busy, self.Load, self.To, self.From)
+        return self.commitValues22(**kwargs)
 
 
 class LoadBalancer():
@@ -187,8 +204,11 @@ class Server():
     self.mark = False
     self.ip   = ''
     self.port = '80'
+    self.secure = False
     self.vhosts = []
     self.error = False
+    ## True for alternative mode (the way we can disable a worker)
+    self.modealt = False
 
   def add_vhost(self, name, balancerUrlPath='balancer-manager'):
     vh = VHost()
@@ -224,7 +244,7 @@ class Cluster():
 
 ##
 def __myPrint(o):
-  print o
+  print (o)
 
 def __set_val(obj, **kwargs):
   if isinstance(obj, Worker):
@@ -288,10 +308,8 @@ def acm_print(obj):
   __acm_apply_func(obj)
 
 
-#def acm_set(obj, lf=None, ls=None, wr=None, rr=None, dw=None):
 def acm_set(obj, lf=None, ls=None, wr=None, rr=None, dw=None, w_lf=None, w_ls=None, w_wr=None, w_rr=None, w_status_I=None, w_status_N=None, w_status_D=None, w_status_H=None):
   '''Set values on an acm object'''
   f = curry(__set_val, lf=lf, ls=ls, wr=wr, rr=rr, dw=dw, w_lf=w_lf, w_ls=w_ls, w_wr=w_wr, w_rr=w_rr, w_status_I=w_status_I, w_status_N=w_status_N, w_status_D=w_status_D, w_status_H=w_status_H)
-  #f = curry(__set_val, lf=lf, ls=ls, wr=wr, rr=rr, dw=dw)
   __acm_apply_func(obj, f)
 
