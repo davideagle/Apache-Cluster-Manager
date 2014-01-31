@@ -86,7 +86,11 @@ class Worker():
       data = urllib.urlencode(postParams)
       headers = {"Content-type": "application/x-www-form-urlencoded", "Accept": "text/plain", "Host": vh.name}
       if vh is not None and vh.name != '': headers['Host'] = vh.name
-      h = httplib.HTTPConnection('%s:%s' % (srv.ip, srv.port)) 
+      if srv.secure:
+          h = httplib.HTTPSConnection('%s:%s' % (srv.ip, srv.port))
+      else:
+          h = httplib.HTTPConnection('%s:%s' % (srv.ip, srv.port)) 
+          
       h.request('POST', self.action, data, headers)
       r = h.getresponse()
     except Exception, e:
